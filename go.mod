@@ -94,6 +94,7 @@ require (
 	k8s.io/gengo v0.0.0-20190822140433-26a664648505
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20190816220812-743ec37842bf
+	k8s.io/sample-controller v0.0.0-20190926000856-a91ecd8a9fc0
 	k8s.io/utils v0.0.0-20190920012459-5008bf6f8cd6
 	modernc.org/cc v1.0.0
 	modernc.org/golex v1.0.0

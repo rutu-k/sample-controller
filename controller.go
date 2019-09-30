@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,41 +37,41 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
-	genericv1alpha1 "k8s.io/sample-controller/pkg/apis/genericdaemon/v1alpha1"
-	clientset "k8s.io/sample-controller/pkg/generated/clientset/versioned"
-	samplescheme "k8s.io/sample-controller/pkg/generated/clientset/versioned/scheme"
-	informers "k8s.io/sample-controller/pkg/generated/informers/externalversions/genericdaemon/v1alpha1"
-	listers "k8s.io/sample-controller/pkg/generated/listers/genericdaemon/v1alpha1"
+	helloworldv1alpha1 "github.com/rutu-k/sample-controller/pkg/apis/helloworld/v1alpha1"
+	clientset "github.com/rutu-k/sample-controller/pkg/generated/clientset/versioned"
+	helloworldscheme "github.com/rutu-k/sample-controller/pkg/generated/clientset/versioned/scheme"
+	informers "github.com/rutu-k/sample-controller/pkg/generated/informers/externalversions/helloworld/v1alpha1"
+	listers "github.com/rutu-k/sample-controller/pkg/generated/listers/helloworld/v1alpha1"
 )
 
 const controllerAgentName = "helloworld"
 
 const (
-	// SuccessSynced is used as part of the Event 'reason' when a Genericdaemon is synced
+	// SuccessSynced is used as part of the Event 'reason' when a helloworld is synced
 	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a Genericdaemon fails
+	// ErrResourceExists is used as part of the Event 'reason' when a helloworld fails
 	// to sync due to a Deployment of the same name already existing.
 	ErrResourceExists = "ErrResourceExists"
 
 	// MessageResourceExists is the message used for Events when a resource
 	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by Genericdaemon"
-	// MessageResourceSynced is the message used for an Event fired when a Genericdaemon
+	MessageResourceExists = "Resource %q already exists and is not managed by helloworld"
+	// MessageResourceSynced is the message used for an Event fired when a helloworld
 	// is synced successfully
-	MessageResourceSynced = "Genericdaemon synced successfully"
+	MessageResourceSynced = "helloworld synced successfully"
 )
 
-// Controller is the controller implementation for Genericdaemon resources
+// Controller is the controller implementation for helloworld resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
 	// sampleclientset is a clientset for our own API group
-	helloworldclientset clientset.Interface
+	helloworldClientset clientset.Interface
 
-	deploymentsLister    appslisters.DeploymentLister
-	deploymentsSynced    cache.InformerSynced
-	hellosLister listers.HelloLister
-	hellosSynced cache.InformerSynced
+	deploymentsLister appslisters.DeploymentLister
+	deploymentsSynced cache.InformerSynced
+	hellosLister      listers.HelloLister
+	hellosSynced      cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -86,14 +87,14 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(
 	kubeclientset kubernetes.Interface,
-	helloworldclientset clientset.Interface,
+	helloworldClientset clientset.Interface,
 	deploymentInformer appsinformers.DeploymentInformer,
 	helloInformer informers.HelloInformer) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
-	utilruntime.Must(samplescheme.AddToScheme(scheme.Scheme))
+	utilruntime.Must(helloworldscheme.AddToScheme(scheme.Scheme))
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
@@ -101,18 +102,18 @@ func NewController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
-		kubeclientset:        kubeclientset,
-		helloworldclientset:      sampleclientset,
-		deploymentsLister:    deploymentInformer.Lister(),
-		deploymentsSynced:    deploymentInformer.Informer().HasSynced,
-		hellosLister: helloInformer.Lister(),
-		hellosSynced: helloInformer.Informer().HasSynced,
-		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Hellos"),
-		recorder:             recorder,
+		kubeclientset:       kubeclientset,
+		helloworldClientset: helloworldClientset,
+		deploymentsLister:   deploymentInformer.Lister(),
+		deploymentsSynced:   deploymentInformer.Informer().HasSynced,
+		hellosLister:        helloInformer.Lister(),
+		hellosSynced:        helloInformer.Informer().HasSynced,
+		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Hellos"),
+		recorder:            recorder,
 	}
 
 	klog.Info("Setting up event handlers")
-	// Set up an event handler for when Genericdaemon resources change
+	// Set up an event handler for when helloworld resources change
 	helloInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueHello,
 		UpdateFunc: func(old, new interface{}) {
@@ -121,7 +122,7 @@ func NewController(
 	})
 	// Set up an event handler for when Deployment resources change. This
 	// handler will lookup the owner of the given Deployment, and if it is
-	// owned by a Genericdaemon resource will enqueue that Genericdaemon resource for
+	// owned by a helloworld resource will enqueue that helloworld resource for
 	// processing. This way, we don't need to implement custom logic for
 	// handling Deployment resources. More info on this pattern:
 	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
@@ -152,7 +153,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting Genericdaemon controller")
+	klog.Info("Starting helloworld controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
@@ -161,7 +162,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting workers")
-	// Launch two workers to process Genericdaemon resources
+	// Launch two workers to process helloworld resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -215,7 +216,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Genericdaemon resource to be synced.
+		// helloworld resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
 			c.workqueue.AddRateLimited(key)
@@ -248,7 +249,7 @@ func (c *Controller) syncHandler(key string) error {
 	}
 
 	// Get the Hello resource with this namespace/name
-	hello, err := c.hellosLister.hellos(namespace).Get(name)
+	hello, err := c.hellosLister.Hellos(namespace).Get(name)
 	if err != nil {
 		// The Hello resource may no longer exist, in which case we stop
 		// processing.
@@ -296,7 +297,7 @@ func (c *Controller) syncHandler(key string) error {
 	// should update the Deployment resource.
 	if hello.Spec.Replicas != nil && *hello.Spec.Replicas != *deployment.Spec.Replicas {
 		klog.V(4).Infof("Hello %s replicas: %d, deployment replicas: %d", name, *hello.Spec.Replicas, *deployment.Spec.Replicas)
-		deployment, err = c.kubeclientset.AppsV1().Deployments(Hello.Namespace).Update(newDeployment(hello))
+		deployment, err = c.kubeclientset.AppsV1().Deployments(hello.Namespace).Update(newDeployment(hello))
 	}
 
 	// If an error occurs during Update, we'll requeue the item so we can
@@ -317,7 +318,7 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) updateHelloStatus(hello *samplev1alpha1.Hello, deployment *appsv1.Deployment) error {
+func (c *Controller) updateHelloStatus(hello *helloworldv1alpha1.Hello, deployment *appsv1.Deployment) error {
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use DeepCopy() to make a deep copy of original object and modify this copy
 	// Or create a copy manually for better performance
@@ -327,7 +328,7 @@ func (c *Controller) updateHelloStatus(hello *samplev1alpha1.Hello, deployment *
 	// we must use Update instead of UpdateStatus to update the Status block of the Hello resource.
 	// UpdateStatus will not allow changes to the Spec of the resource,
 	// which is ideal for ensuring nothing other than resource status has been updated.
-	_, err := c.sampleclientset.SamplecontrollerV1alpha1().Hellos(hello.Namespace).Update(helloCopy)
+	_, err := c.helloworldClientset.HelloworldV1alpha1().Hellos(hello.Namespace).Update(helloCopy)
 	return err
 }
 
@@ -387,7 +388,7 @@ func (c *Controller) handleObject(obj interface{}) {
 // newDeployment creates a new Deployment for a Hello resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the Hello resource that 'owns' it.
-func newDeployment(hello *samplev1alpha1.Hello) *appsv1.Deployment {
+func newDeployment(hello *helloworldv1alpha1.Hello) *appsv1.Deployment {
 	labels := map[string]string{
 		"app":        hello.Name,
 		"controller": hello.Name,
@@ -397,7 +398,7 @@ func newDeployment(hello *samplev1alpha1.Hello) *appsv1.Deployment {
 			Name:      hello.Spec.DeploymentName,
 			Namespace: hello.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(hello, samplev1alpha1.SchemeGroupVersion.WithKind("Hello")),
+				*metav1.NewControllerRef(hello, helloworldv1alpha1.SchemeGroupVersion.WithKind("Hello")),
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -412,9 +413,9 @@ func newDeployment(hello *samplev1alpha1.Hello) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  hello.Name,
-							Image: "busybox",
-							Command: strings.Split(cr.Spec.Command, " "),
+							Name:    hello.Name,
+							Image:   "busybox",
+							Command: strings.Split(hello.Spec.Command, " "),
 						},
 					},
 				},

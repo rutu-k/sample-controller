@@ -1,0 +1,8 @@
+apiVersion: helloworld.kubernetes.info/v1alpha1
+kind: Hello
+metadata:
+  name: test-hello
+spec:
+  deploymentName: test-hello
+  replicas: 1
+  command: "watch echo Hello World!!!"
