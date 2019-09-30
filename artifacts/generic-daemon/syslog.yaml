@@ -1,0 +1,7 @@
+apiVersion: mydomain.com/v1beta1
+kind: Genericdaemon
+metadata:
+  name: syslog
+spec:
+  label: minikube
+  image: mbessler/syslogdocker
